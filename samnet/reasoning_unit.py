@@ -19,7 +19,7 @@ class ReasoningUnit(nn.Module):
         Constructor for ``ReasoningUnit``
 
         Args:
-            dim (int): dimension of feature objects
+            dim (int): common dimension of all objects
             num_temporal (int): number of temporal classes
         """
 

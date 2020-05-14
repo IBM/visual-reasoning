@@ -1,32 +1,13 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
+# Copyright (C) IBM Corporation 2020
 #
-# Copyright (C) IBM Corporation 2018
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#      http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+# SPDX-License-Identifier: Apache-2.0
 
-"""
-Image_encoder.py: Implementation of the ImageEncoder for the VWM network.
+__author__ = "T.S. Jayram"
 
-"""
-
-__author__ = "Vincent Albouy, T.S. Jayram"
-
-from torch.nn import Module
-import torch.nn as nn
+from torch import nn
 
 
-class ImageEncoder(Module):
+class ImageEncoder(nn.Module):
 
     """
     Implementation of the ``ImageEncoder`` of the VWM network.
@@ -36,9 +17,8 @@ class ImageEncoder(Module):
         """
         Constructor for the ``ImageEncoder``.
 
-        :param dim: dimension of feature vectors
-        :type dim: int
-
+        Args:
+            dim (int): dimension of feature objects
         """
 
         # call base constructor
@@ -74,20 +54,23 @@ class ImageEncoder(Module):
 
         def init_weights(m):
             if type(m) == nn.Conv2d:
-                nn.init.xavier_uniform_(m.weight, gain=nn.init.calculate_gain('relu'))
+                nn.init.xavier_uniform_(
+                    m.weight, gain=nn.init.calculate_gain('relu'))
                 m.bias.data.fill_(0.01)
 
         self.cnn_module.apply(init_weights)
 
     def forward(self, images):
+        """Forward pass of ``ImageEncoder``
+
+        Args:
+            images (Tensor): [batch_size x H x W]
+
+        Returns:
+            Tensor: [batch_size x (H*W) x dim]
+                Feature map
         """
-        Forward pass of the ``ImageEncoder``.
 
-        :param images: tensor of the images, shape [batch_size x H x W].
-
-        :return feature_maps: [batch_size x (H*W) x dim].
-
-        """
         x = self.cnn_module(images)
 
         # reshape from 4D to 3D and permute so that embedding dimension is last

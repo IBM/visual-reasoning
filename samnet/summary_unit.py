@@ -18,7 +18,7 @@ class SummaryUpdateUnit(nn.Module):
         """Constructor for ``SummaryUpdateUnit``
 
         Args:
-            dim (int): dimension of feature objects
+            dim (int): common dimension of all objects
         """
 
         # call base constructor

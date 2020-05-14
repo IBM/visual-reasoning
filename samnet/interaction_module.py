@@ -21,7 +21,7 @@ class InteractionModule(nn.Module):
         """Constructor for the ``InteractionModule``
 
         Args:
-            dim (int): dimension of base and feature objects
+            dim (int): common dimension of base and feature objects
             do_project (bool, optional): flag indicating whether we need to
                 project the feature objects. If False, then the projected
                 feature objects is specified as an additional argument.

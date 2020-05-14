@@ -2,12 +2,6 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""
-question_encoder.py: Implementation of the Question Encoder 
-Takes raw text as input and produces question representations
-by using a combination of word embeddings and a LSTM
-"""
-
 __author__ = "T.S. Jayram"
 
 import torch
@@ -20,18 +14,12 @@ class QuestionEncoder(nn.Module):
     """
 
     def __init__(self, vocabulary_size, embedded_dim, dim):
-        """
-        Constructor for the ``QuestionEncoder``.
-        
-        :param vocabulary_size: size of dictionnary
-        :type vocabulary_size: int
-        
-        :param embedded_dim: dimension of the word embeddings.
-        :type embedded_dim: int
+        """Constructor for ``QuestionEncoder``
 
-        :param dim: dimension of feature vectors
-        :type dim: int
-
+        Args:
+            vocabulary_size (int): size of dictionnary
+            embedded_dim (int): dimension of the word embeddings
+            dim (int): common dimension of all objects
         """
 
         # call base constructor
@@ -46,22 +34,25 @@ class QuestionEncoder(nn.Module):
         self.lstm_proj = torch.nn.Linear(2 * dim, dim)
 
         # Defines nn.Embedding for embedding of questions into float tensors.
-        self.Embedding = nn.Embedding(vocabulary_size, embedded_dim, padding_idx=0)
+        self.Embedding = nn.Embedding(
+            vocabulary_size, embedded_dim, padding_idx=0)
 
     def forward(self, questions, questions_len):
+        """Forward pass of ``QuestionEncoder``
+
+        Args:
+            questions (Tensor): [batch_size x maxQuestionLength x embedded_dim]
+                Question words as feature vectors
+
+            questions_len (int): Unpadded questions length
+
+        Returns:
+            Tensor: [batch_size x (2*dim)]
+                Question encodings
+            Tensor: [batch_size x maxQuestionLength x dim]
+                Contextual_word_embedding
         """
-        Forward pass of the ``QuestionEncoder``.
 
-        :param questions: tensor of the questions words, shape [batch_size x maxQuestionLength x embedded_dim].
-        :type questions: torch.tensor
-
-        :param questions_len: Unpadded questions length.
-        :type questions_len: list
-
-        :return question encodings: [batch_size x (2*dim)]
-        :return: contextual_word_embedding: [batch_size x maxQuestionLength x dim] 
-
-        """
         # get batch size
         batch_size = questions.shape[0]
 
@@ -74,7 +65,10 @@ class QuestionEncoder(nn.Module):
         # get final words encodings using linear layer
         contextual_word_embedding = self.lstm_proj(lstm_out)
 
-        # reshape last hidden states for questions encodings -> [batch_size x (2*dim)]
-        question_encoding = h.permute(1, 0, 2).contiguous().view(batch_size, -1)
+        # reshape last hidden states for questions encodings
+        # -> [batch_size x (2*dim)]
+        question_encoding = (h.permute(1, 0, 2)
+                             .contiguous()
+                             .view(batch_size, -1))
 
         return contextual_word_embedding, question_encoding

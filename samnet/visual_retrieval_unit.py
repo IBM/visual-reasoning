@@ -19,7 +19,7 @@ class VisualRetrievalUnit(nn.Module):
         Constructor for ``VisualRetrievalUnit``
 
         Args:
-            dim (int): dimension of feature objects
+            dim (int): common dimension of all objects
         """
 
         # call base constructor

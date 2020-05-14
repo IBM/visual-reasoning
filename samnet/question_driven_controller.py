@@ -20,7 +20,7 @@ class QuestionDrivenController(nn.Module):
         """Constructor for QuestionDrivenController
 
         Args:
-            dim (int): dimension of feature objects
+            dim (int): common dimension of all objects
             max_step (int): maximum number of reasoning steps
             num_temporal_classes (int): number of temporal classes
         """

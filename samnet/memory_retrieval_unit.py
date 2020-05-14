@@ -20,7 +20,7 @@ class MemoryRetrievalUnit(Module):
         Constructor for ``MemoryRetrievalUnit``
 
         Args:
-            dim (int): dimension of feature objects
+            dim (int): common dimension of all objects
         """
 
         # call base constructor
