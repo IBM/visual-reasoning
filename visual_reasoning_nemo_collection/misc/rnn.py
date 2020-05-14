@@ -1,3 +1,19 @@
+# Copyright (C) IBM Corporation 2020
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Code below is initially taken from NeMo
+
 # =============================================================================
 # Copyright 2020 NVIDIA. All Rights Reserved.
 #
@@ -212,22 +228,38 @@ class EncoderRNN(TrainableNM):
     def output_ports(self):
         """Returns definitions of module output ports.
         """
-        return {
-            'outputs': NeuralType(('B', 'T', 'D'), ChannelType()),
-            'hidden': NeuralType(('B', 'T', 'D'), ChannelType()),
-        }
+        if self._output_last_only:
+            return {
+                'outputs': NeuralType(('B', 'D'), ChannelType()),
+                'hidden': NeuralType(('B', 'D'), ChannelType()),
+            }
+        else: # Output all timesteps
+            return {
+                'outputs': NeuralType(('B', 'T', 'D'), ChannelType()),
+                'hidden': NeuralType(('B', 'T', 'D'), ChannelType()),
+            }
 
     def __init__(
-        self, input_dim, emb_dim, hid_dim, dropout, n_layers=1, pad_idx=1, embedding_to_load=None, sum_hidden=True
+        self, 
+        input_dim, 
+        emb_dim, 
+        hid_dim, 
+        dropout, 
+        n_layers=1, 
+        pad_idx=1, 
+        embedding_to_load=None, 
+        sum_hidden=True,
+        output_last_only=False
     ):
         super().__init__()
         self.dropout = nn.Dropout(dropout)
+        self._output_last_only = output_last_only
         self.embedding = nn.Embedding(input_dim, emb_dim, padding_idx=pad_idx)
         if embedding_to_load is not None:
             self.embedding.weight.data.copy_(embedding_to_load)
         else:
             self.embedding.weight.data.normal_(0, 0.1)
-        self.rnn = nn.GRU(emb_dim, hid_dim, n_layers, batch_first=True, dropout=dropout, bidirectional=True)
+        self.rnn = nn.GRU(emb_dim, hid_dim, n_layers, batch_first=True, dropout=dropout, bidirectional=False)
         self.sum_hidden = sum_hidden
         self.to(self._device)
 
@@ -258,5 +290,9 @@ class EncoderRNN(TrainableNM):
         else:
             hidden = hidden.reshape(batch_size, self.rnn.num_layers, -1)
         # hidden is now of shape (batch, num_layer, [num_directions] * hidden_size)
+
+        if self._output_last_only:
+            outputs = outputs[:,-1,:]
+            hidden = hidden[:,-1,:]
 
         return outputs, hidden
