@@ -17,15 +17,11 @@ import nemo
 from nemo.core.neural_types import NeuralType, ChannelType
 from nemo.core import NeuralGraph, OperationMode, DeviceType
 from nemo.utils import logging
-from visual_reasoning_nemo_collection.data.clevr import CLEVRDataLayer
-from visual_reasoning_nemo_collection.image.resnet import Resnet50
-from visual_reasoning_nemo_collection.text.tokenizer import Tokenizer
-from visual_reasoning_nemo_collection.loss.nllloss import NLLLoss
-from visual_reasoning_nemo_collection.misc.rnn import EncoderRNN
-from visual_reasoning_nemo_collection.misc.concatenate import Concatenate
-from visual_reasoning_nemo_collection.misc.multi_layer_perceptron import MultiLayerPerceptron
-from visual_reasoning_nemo_collection.misc.logsoftmax import LogSoftmax
-
+from visual_reasoning_nemo_collection.data import CLEVRDataLayer
+from visual_reasoning_nemo_collection.image import Resnet50
+from visual_reasoning_nemo_collection.text import Tokenizer
+from visual_reasoning_nemo_collection.loss import NLLLoss
+from visual_reasoning_nemo_collection.misc import EncoderRNN, Concatenate, MultiLayerPerceptron, LogSoftmax
 
 # Define model parameters
 batch_size = 32
