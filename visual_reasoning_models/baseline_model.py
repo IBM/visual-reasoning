@@ -33,30 +33,43 @@ neural_factory = nemo.core.NeuralModuleFactory(
     placement=DeviceType.GPU
 )
 
-clevr_data_train = CLEVRDataLayer(batch_size=batch_size, root=data_root, split_name="train")
-clevr_data_val = CLEVRDataLayer(batch_size=batch_size, root=data_root, split_name="val")
+clevr_data_train = CLEVRDataLayer(
+    batch_size=batch_size, 
+    root=data_root, 
+    split_name="train"
+)
+clevr_data_val = CLEVRDataLayer(
+    batch_size=batch_size, 
+    root=data_root, 
+    split_name="val"
+)
 
+# Resnet50: load weights from torchvision, freeze all but last FC layer
 resnet = Resnet50(output_size=512)
 resnet.freeze()
 resnet.unfreeze(set(["fc.weight", "fc.bias"]))
 
+# Tokenize (text->ids) + pad
 tokenizer = Tokenizer(vocab_path="data/CLEVR_v1.0/questions/vocab_questions_words.txt")
 
+# Encode question through LSTM into 512-long vector (last output)
 question_encoder = EncoderRNN(
     input_dim=tokenizer._tokenizer.vocab_size,
     emb_dim=512,
     hid_dim=512,
     dropout=0,
     n_layers=1,
-    output_last_only=True
+    output_last_only=True # we only want the last timestep output
 )
 
+# Concatenate into 1024 long vector
 concat = Concatenate(
     dim=1,
     num_inputs=2,
     neural_type=NeuralType(('B', 'D'), ChannelType())
 )
 
+# 3-layer NLP, with dims 1024 -> 256 -> #answer_categories
 mlp = MultiLayerPerceptron(
     input_dim=1024,
     output_dim=len(clevr_data_train.answer_labels),
@@ -70,27 +83,48 @@ nllloss = NLLLoss()
 
 # 2. Create a training graph.
 with NeuralGraph(operation_mode=OperationMode.training) as training_graph:
+    # CLEVR training data
     image, question, answer = clevr_data_train()
+
+    # Image pipeline
     encoded_image = resnet(x=image)
+
+    # Question nlp pipeline
     tokenized_question, question_len = tokenizer(x=question)
     encoded_question, _ = question_encoder(inputs=tokenized_question, input_lens=question_len)
+
+    # Concatenate image and question encoded vectors, pass through 3 layer MLP
     concat_image_question = concat(x_0=encoded_image, x_1=encoded_question)
     mlp_output = mlp(x=concat_image_question)
+
+    # Compute logprobs, loss
     answer_inferred = logsoftmax(x=mlp_output)
     loss = nllloss(predictions=answer_inferred, targets=answer)
+
     # Set output - that output will be used for training.
     training_graph.outputs["loss"] = loss
 
+
 # 3. Create a validation graph, starting from the second data layer.
 with NeuralGraph(operation_mode=OperationMode.evaluation) as evaluation_graph:
+    # CLEVR validation data
     image, question, answer = clevr_data_val()
+    
+    # Image pipeline
     encoded_image = resnet(x=image)
+    
+    # Question nlp pipeline
     tokenized_question, question_len = tokenizer(x=question)
     encoded_question, _ = question_encoder(inputs=tokenized_question, input_lens=question_len)
+    
+    # Concatenate image and question encoded vectors, pass through 3 layer MLP
     concat_image_question = concat(x_0=encoded_image, x_1=encoded_question)
     mlp_output = mlp(x=concat_image_question)
+    
+    # Compute logprobs, loss
     answer_inferred = logsoftmax(x=mlp_output)
     loss_e = nllloss(predictions=answer_inferred, targets=answer)
+
 
 # 4. Create the callbacks.
 def eval_loss_per_batch_callback(tensors, global_vars):

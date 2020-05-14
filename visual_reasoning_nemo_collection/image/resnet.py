@@ -21,6 +21,10 @@ from nemo.utils.decorators import add_port_docs
 from nemo.core import DeviceType
 
 class Resnet50(TrainableNM):
+    """
+    Wraps Resnet50 from torchvision.
+    Parametrizable last fc layer dim.
+    """
 
     @property
     @add_port_docs()

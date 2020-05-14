@@ -162,6 +162,3 @@ class CLEVRDataLayer(DataLayerNM):
     @property
     def data_iterator(self):
         return None
-
-if __name__ == "__main__":
-    dl = CLEVRDataset(1, "data/CLEVR_1.0", "val")

@@ -21,6 +21,10 @@ from nemo.collections.nlp.data import WordTokenizer
 from collections import OrderedDict
 
 class Concatenate(NonTrainableNM):
+    """
+    Concatenate several tensors along given dimension.
+    NeuralType has to be given to set the input/output ports.
+    """
     @property
     @add_port_docs()
     def input_ports(self):

@@ -21,6 +21,13 @@ from nemo.utils.decorators import add_port_docs
 from nemo.collections.nlp.data import WordTokenizer
 
 class Tokenizer(NonTrainableNM):
+    """
+    Wrapping `nemo.collections.nlp.data.WordTokenizer`:
+    - Tokenizing text directly to ids.
+    - Sorts the sentences in decreasing length order to make torch's `pack_padded_sequence` happy.
+    - Applies `torch.nn.utils.rnn.pad_sequence`.
+    - Outputs everything in tensor format.
+    """
     @property
     @add_port_docs()
     def input_ports(self):

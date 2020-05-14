@@ -20,6 +20,11 @@ from nemo.utils.decorators import add_port_docs
 from nemo.core import DeviceType
 
 class MultiLayerPerceptron(TrainableNM):
+    """
+    If only input and output dims are given, will be single layer (no hidden layers).
+    If hidden_dims (list of ints) is also given, hidden layers are added along with the given `hidden_nonlinearity`.
+    `last_nonlinearity` is optional, to add non linearity after the last layer.
+    """
 
     @property
     @add_port_docs()
