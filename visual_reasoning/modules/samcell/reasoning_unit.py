@@ -6,7 +6,7 @@ __author__ = "T.S. Jayram"
 
 import torch
 from torch import nn
-from .utils import Linear
+from visual_reasoning.modules import Linear
 
 
 class ReasoningUnit(nn.Module):

@@ -15,13 +15,14 @@ import numpy as np
 import torch
 import torch.nn as nn
 
-from .utils import Linear
-from .question_encoder import QuestionEncoder
-from .question_driven_controller import QuestionDrivenController
-from .image_encoder import ImageEncoder
-from .samcell import SAMCell
-from .memory_update_unit import memory_update
-from .output_unit import OutputUnit
+from visual_reasoning.modules import Linear, ImageEncoder
+from visual_reasoning.modules.samcell import (
+    QuestionEncoder,
+    QuestionDrivenController,
+    SAMCell,
+    memory_update,
+    OutputUnit
+)
 
 # needed for nltk.word.tokenize - do it once!
 nltk.download('punkt')
