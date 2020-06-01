@@ -6,7 +6,7 @@ __author__ = "T.S. Jayram"
 
 import torch
 from torch import nn
-from .utils import linear
+from .utils import Linear
 
 
 class SummaryUpdateUnit(nn.Module):
@@ -25,7 +25,7 @@ class SummaryUpdateUnit(nn.Module):
         super(SummaryUpdateUnit, self).__init__()
 
         # linear layer for projecting context_output and summary_output
-        self.concat_layer = linear(2 * dim, dim, bias=True)
+        self.concat_layer = Linear(2 * dim, dim, bias=True)
 
     def forward(self, summary_object, image_match, visual_object,
                 memory_match, memory_object):

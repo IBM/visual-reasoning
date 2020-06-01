@@ -6,7 +6,7 @@ __author__ = "T.S. Jayram"
 
 import torch
 from torch import nn
-from .utils import linear
+from .utils import Linear
 
 
 class ReasoningUnit(nn.Module):
@@ -37,11 +37,11 @@ class ReasoningUnit(nn.Module):
         out_dim = 4
 
         self.reasoning_module = torch.nn.Sequential(
-            linear(in_dim, hidden_dim, bias=True),
+            Linear(in_dim, hidden_dim, bias=True),
             torch.nn.ELU(),
-            linear(hidden_dim, hidden_dim, bias=True),
+            Linear(hidden_dim, hidden_dim, bias=True),
             torch.nn.ELU(),
-            linear(hidden_dim, out_dim, bias=True),
+            Linear(hidden_dim, out_dim, bias=True),
             torch.nn.Sigmoid())
 
     def forward(self, control_state, visual_attention, read_head,

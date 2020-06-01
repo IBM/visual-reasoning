@@ -15,7 +15,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 
-from .utils import linear
+from .utils import Linear
 from .question_encoder import QuestionEncoder
 from .question_driven_controller import QuestionDrivenController
 from .image_encoder import ImageEncoder
@@ -75,7 +75,7 @@ class SAMNet(nn.Module):
         self.image_encoder = ImageEncoder(dim=self.dim)
 
         # linear layer for the projection of image features
-        self.feature_map_proj_layer = linear(self.dim, self.dim, bias=True)
+        self.feature_map_proj_layer = Linear(self.dim, self.dim, bias=True)
 
         # initialize SAMCell
         self.sam_cell = SAMCell(self.dim, self.num_temporal)

@@ -6,7 +6,7 @@ __author__ = "T.S. Jayram"
 
 import torch
 from torch import nn
-from .utils import linear
+from .utils import Linear
 
 
 class AttentionModule(nn.Module):
@@ -26,7 +26,7 @@ class AttentionModule(nn.Module):
 
         # define a linear layer for the attention weights.
         self.attn = torch.nn.Sequential(
-            linear(dim, 1, bias=False),
+            Linear(dim, 1, bias=False),
             torch.nn.Softmax(dim=1))
         self.dim = dim
 

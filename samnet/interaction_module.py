@@ -9,7 +9,7 @@ __author__ = "T.S. Jayram"
 
 import torch
 from torch import nn
-from .utils import linear
+from .utils import Linear
 
 
 class InteractionModule(nn.Module):
@@ -32,15 +32,15 @@ class InteractionModule(nn.Module):
         super(InteractionModule, self).__init__()
 
         # linear layer to project of the query
-        self.base_layer = linear(dim, dim)
+        self.base_layer = Linear(dim, dim)
 
         # linear layer for the projection of the keys
-        self.feature_layer = linear(dim, dim) if do_project else None
+        self.feature_layer = Linear(dim, dim) if do_project else None
 
         self.do_project = do_project
 
         # linear layer to modulate feature objects by base object
-        self.modulator = linear(2 * dim, dim, bias=True)
+        self.modulator = Linear(2 * dim, dim, bias=True)
 
     def forward(self, base, features, features_proj=None):
         """Forward pass of the ``InteractionModule``

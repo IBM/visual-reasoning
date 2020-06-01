@@ -7,7 +7,7 @@ __author__ = "T.S. Jayram"
 import torch
 from torch import nn
 
-from .utils import linear
+from .utils import Linear
 
 
 class OutputUnit(nn.Module):
@@ -30,9 +30,9 @@ class OutputUnit(nn.Module):
 
         # define the 2-layers MLP
         self.classifier = torch.nn.Sequential(
-            linear(dim, dim, bias=True, initializer=nn.init.kaiming_uniform_),
+            Linear(dim, dim, bias=True, initializer=nn.init.kaiming_uniform_),
             torch.nn.ELU(),
-            linear(dim, num_outputs, bias=True))
+            Linear(dim, num_outputs, bias=True))
 
     def forward(self, features):
         """Forward pass of ``OutputUnit``

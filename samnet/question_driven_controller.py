@@ -7,7 +7,7 @@ __author__ = "T.S. Jayram"
 import torch
 from torch import nn
 
-from .utils import linear
+from .utils import Linear
 from .attention_module import AttentionModule
 
 
@@ -32,19 +32,19 @@ class QuestionDrivenController(nn.Module):
         # encoding
         self.pos_aware_layers = torch.nn.ModuleList()
         for _ in range(max_step):
-            self.pos_aware_layers.append(linear(2 * dim, dim, bias=True))
+            self.pos_aware_layers.append(Linear(2 * dim, dim, bias=True))
 
         # define the linear layer used to create the cqi values
-        self.ctrl_question = linear(2 * dim, dim, bias=True)
+        self.ctrl_question = Linear(2 * dim, dim, bias=True)
 
         # instantiate attention module
         self.attention_module = AttentionModule(dim)
 
         # temporal classifier that outputs 4 classes
         self.temporal_classifier = torch.nn.Sequential(
-            linear(dim, dim, bias=True),
+            Linear(dim, dim, bias=True),
             torch.nn.ELU(),
-            linear(dim, num_temporal_classes, bias=True),
+            Linear(dim, num_temporal_classes, bias=True),
             torch.nn.Softmax(dim=-1)
             )
 
