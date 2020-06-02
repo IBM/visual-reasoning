@@ -16,7 +16,7 @@ import torch
 import torch.nn as nn
 
 from visual_reasoning.modules import Linear, ImageEncoder
-from visual_reasoning.modules.samcell import (
+from . import (
     QuestionEncoder,
     QuestionDrivenController,
     SAMCell,

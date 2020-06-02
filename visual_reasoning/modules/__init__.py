@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 __all__ = [
-    'samcell',
+    'samnet',
     'image_encoder',
     'linear',
 ]
