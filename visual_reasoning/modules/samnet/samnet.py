@@ -15,6 +15,10 @@ import numpy as np
 import torch
 import torch.nn as nn
 
+from nemo.backends.pytorch import TrainableNM
+from nemo.utils.decorators import add_port_docs
+from nemo.core import DeviceType, NeuralType, ChannelType, VoidType, LogitsType
+
 from visual_reasoning.modules import Linear, ImageEncoder
 from . import (
     QuestionEncoder,
@@ -28,12 +32,23 @@ from . import (
 nltk.download('punkt')
 
 
-class SAMNet(nn.Module):
+class SAMNet(TrainableNM):
     """
     Implementation of the entire ``SamNet`` network.
     """
 
-    def __init__(self, params, problem_default_values_):
+    def __init__(
+        self, 
+        dim: int,
+        embed_hidden: int,
+        max_step: int,
+        num_temporal: int,
+        dropout_factor: float,
+        slot: int,
+        words_embed_length: int,
+        num_outputs: int,
+        vocabulary_size: int
+    ):
         """Constructor for ``SAMNet``
 
         Args:
@@ -44,24 +59,18 @@ class SAMNet(nn.Module):
 
         super(SAMNet, self).__init__()
 
-        # parse params dict
-        try:
-            self.dim = params['dim']
-            self.embed_hidden = params['embed_hidden']
-            self.max_step = params['max_step']
-            self.num_temporal = params['num_temporal']
-            self.dropout_param = params['dropout']
-            self.slot = params['slot']
-            self.words_embed_length = params['words_embed_length']
 
-            self.num_outputs = problem_default_values_['num_outputs']
-            # Maximum number of embeddable words.
-            self.vocabulary_size = problem_default_values_['embed_vocab_size']
+        self.dim = dim
+        self.embed_hidden = embed_hidden
+        self.max_step = max_step
+        self.num_temporal = num_temporal
+        self.dropout_param = dropout_factor
+        self.slot = slot
+        self.words_embed_length = words_embed_length
 
-            self.dtype = self.app_state.dtype
-        except KeyError:
-            self.logger.warning(
-                "Couldn't retrieve value(s) from problem_default_values_.")
+        self.num_outputs = num_outputs
+        # Maximum number of embeddable words.
+        self.vocabulary_size = vocabulary_size
 
         self.name = 'SAMNet'
 
@@ -87,13 +96,33 @@ class SAMNet(nn.Module):
         # initialize hidden states for control state and summary object
         # this is also a trainable paremeter
         self.control_0 = torch.nn.Parameter(
-            torch.zeros(1, self.dim, dtype=self.dtype))
+            torch.zeros(1, self.dim))
         self.summary_obj_0 = torch.nn.Parameter(
-            torch.zeros(1, self.dim, dtype=self.dtype))
+            torch.zeros(1, self.dim))
 
         self.dropout_layer = torch.nn.Dropout(self.dropout_param)
 
-    def forward(self, data_dict):
+    @property
+    @add_port_docs
+    def input_ports(self):
+        """Returns definition of the module's input ports"""
+
+        return {
+            "images": NeuralType(('B', 'T', 'C', 'H', 'W'), ChannelType()),
+            "question": NeuralType(('B', 'T'), VoidType()) # Sentence token ids
+        }
+
+    @property
+    @add_port_docs
+    def output_ports(self):
+        """Returns definition of the module's output ports"""
+
+        return {
+            "answers": NeuralType(('B', 'T', 'D'), LogitsType)
+        }
+
+
+    def forward(self, images, questions):
         """Forward pass of ``SAMNet`` network.
             Calls first the ``ImageEncoder`` and ``QuestionEncoder``,
             then the recurrent SAMCells, and finally the ```OutputUnit``
@@ -108,15 +137,11 @@ class SAMNet(nn.Module):
         # print('============\nNew Run\n============')
         # Change the order of image dimensions, so we will loop over
         # dimension 0: sequence elements.
-        images = data_dict['images']
         images = images.permute(1, 0, 2, 3, 4)
 
         # Get batch size and length of image sequence.
         seq_len = images.size(0)
         batch_size = images.size(1)
-
-        # Get and procecss questions.
-        questions = data_dict['questions']
 
         # Get questions size of all batch elements.
         questions_length = questions.size(1)
@@ -126,7 +151,9 @@ class SAMNet(nn.Module):
 
         # Create placeholders for logits.
         logits_answer = torch.zeros(
-            batch_size, seq_len, self.num_outputs, dtype=self.dtype)
+            batch_size, seq_len, self.num_outputs)
+        if self.placement is DeviceType.GPU or DeviceType.AllGpu:
+            logits_answer = logits_answer.cuda()
 
         # Apply dropout to SAMCell control_state_init and summary_object states
         control_state_init = self.control_0.expand(batch_size, -1)
@@ -136,10 +163,14 @@ class SAMNet(nn.Module):
         summary_object_init = self.dropout_layer(summary_object_init)
 
         # initialize empty memory
-        memory = torch.zeros(batch_size, self.slot, self.dim, dtype=self.dtype)
+        memory = torch.zeros(batch_size, self.slot, self.dim)
+        if self.placement is DeviceType.GPU:
+            memory = memory.cuda()
 
         # initialize read head at first slot position
-        write_head = torch.zeros(batch_size, self.slot, dtype=self.dtype)
+        write_head = torch.zeros(batch_size, self.slot)
+        if self.placement is DeviceType.GPU:
+            write_head = write_head.cuda()
         write_head[:, 0] = 1
 
         # question encoder
