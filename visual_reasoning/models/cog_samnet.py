@@ -14,7 +14,7 @@ from nemo.core import (
     OperationMode,
     SimpleLossLoggerCallback,
     SimpleLogger,
-    NeMoCallback
+    NeMoCallback,
 )
 from nemo.core.deprecated_callbacks import EvaluatorCallback
 
@@ -27,7 +27,11 @@ from nemo.collections.cv.modules.non_trainables import NonLinearity
 from visual_reasoning.modules.samnet import QuestionEncoder, SAMNet
 from visual_reasoning.modules import ImageEncoder, NLLLoss
 
-from nemo.collections.visual_reasoning.utils.cog_stats import calculate_stats, collate_stats, calculate_accuracies
+from nemo.collections.visual_reasoning.utils.cog_stats import (
+    calculate_stats,
+    collate_stats,
+    calculate_accuracies,
+)
 
 
 def main():
@@ -43,13 +47,20 @@ def main():
     ### INSTANTIATE THE NEURAL MODULES ###
 
     cog_datalayer_train = COGDataLayer(
-        subset="train", cog_tasks="class", cog_type="canonical",
-        batch_size=48, shuffle=True, pin_memory=True
+        subset="train",
+        cog_tasks="class",
+        cog_type="canonical",
+        batch_size=48,
+        shuffle=True,
+        pin_memory=True,
     )
 
-    cog_datalayer_val= COGDataLayer(
-        subset="val", cog_tasks="class", cog_type="canonical",
-        batch_size=256, pin_memory=True
+    cog_datalayer_val = COGDataLayer(
+        subset="val",
+        cog_tasks="class",
+        cog_type="canonical",
+        batch_size=256,
+        pin_memory=True,
     )
 
     question_encoder = QuestionEncoder(
@@ -109,7 +120,6 @@ def main():
 
         training_graph.outputs["loss"] = loss
 
-
     # Display the graph summmary.
     logging.info(training_graph.summary())
 
@@ -151,7 +161,7 @@ def main():
 
         loss_eval = nll_loss(predictions=logprobs_eval, targets=targets_answer_eval)
         loss_eval.rename("loss_eval")
-        
+
     ### CALLBACKS ###
 
     # SimpleLossLoggerCallback will print loss values to console.
@@ -171,13 +181,14 @@ def main():
         targets_answer = tensors[AppState().tensor_names["targets_answer_eval"]][0]
         loss = tensors[AppState().tensor_names["loss_eval"]][0]
 
-
-        global_vars["eval_stats"] += [calculate_stats(
-            tasks=tasks,
-            mask_words=mask_words,
-            prediction_answers=logits,
-            target_answers=targets_answer,
-        )]
+        global_vars["eval_stats"] += [
+            calculate_stats(
+                tasks=tasks,
+                mask_words=mask_words,
+                prediction_answers=logits,
+                target_answers=targets_answer,
+            )
+        ]
 
     # Collate the stats from all the validation batches, calculate accuracies, print to log
     def eval_loss_epoch_finished_callback(global_vars):
@@ -197,8 +208,8 @@ def main():
             logprobs_eval,
             logits_answer_eval,
             targets_answer_eval,
-            loss_eval
-            ],
+            loss_eval,
+        ],
         user_iter_callback=eval_loss_per_batch_callback,
         user_epochs_done_callback=eval_loss_epoch_finished_callback,
         eval_step=10000,
