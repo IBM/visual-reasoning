@@ -1,6 +1,3 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-#
 # Copyright (C) IBM Corporation 2020
 #
 # SPDX-License-Identifier: Apache-2.0

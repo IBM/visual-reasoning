@@ -4,10 +4,15 @@
 
 __author__ = "T.S. Jayram"
 
+import torch
 from torch import nn
 
+from nemo.backends.pytorch import TrainableNM
+from nemo.utils.decorators import add_port_docs
+from nemo.core import ChannelType, NeuralType
 
-class ImageEncoder(nn.Module):
+
+class ImageEncoder(TrainableNM):
 
     """
     Implementation of the ``ImageEncoder`` of the VWM network.
@@ -60,6 +65,24 @@ class ImageEncoder(nn.Module):
 
         self.cnn_module.apply(init_weights)
 
+    @property
+    @add_port_docs
+    def input_ports(self):
+        """Returns definition of the module's input ports"""
+
+        return {
+            "images": NeuralType(('B', 'T', 'C', 'H', 'W'), ChannelType()),
+        }
+
+    @property
+    @add_port_docs
+    def output_ports(self):
+        """Returns definition of the module's output ports"""
+
+        return {
+            "feature_maps": NeuralType(('B', 'T', 'C', 'H', 'W'), ChannelType()),
+        }
+
     def forward(self, images):
         """Forward pass of ``ImageEncoder``
 
@@ -71,13 +94,15 @@ class ImageEncoder(nn.Module):
                 Feature map
         """
 
-        x = self.cnn_module(images)
+        x = torch.stack([
+            self.cnn_module(elem) for elem in torch.unbind(images, dim=1)
+        ], dim=1)
 
-        # reshape from 4D to 3D and permute so that embedding dimension is last
-        feature_maps = x.flatten(start_dim=-2).transpose(-1, -2)
+        # # reshape from 4D to 3D and permute so that embedding dimension is last
+        # feature_maps = x.flatten(start_dim=-2).transpose(-1, -2)
 
-        # optional
-        feature_maps = feature_maps.contiguous()
+        # # optional
+        # feature_maps = feature_maps.contiguous()
 
         # return feature_maps
-        return feature_maps
+        return x

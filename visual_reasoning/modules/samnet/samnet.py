@@ -17,16 +17,16 @@ import torch.nn as nn
 
 from nemo.backends.pytorch import TrainableNM
 from nemo.utils.decorators import add_port_docs
-from nemo.core import DeviceType, NeuralType, ChannelType, VoidType, LogitsType
+from nemo.core import DeviceType, NeuralType, ChannelType, VoidType, LogitsType, EmbeddedTextType, EncodedRepresentation
 
-from visual_reasoning.modules import Linear, ImageEncoder
-from . import (
-    QuestionEncoder,
-    QuestionDrivenController,
-    SAMCell,
-    memory_update,
-    OutputUnit
-)
+from visual_reasoning.modules import Linear
+
+from .question_encoder import QuestionEncoder
+from .question_driven_controller import QuestionDrivenController
+from .samcell import SAMCell
+from .memory_update_unit import memory_update
+from .output_unit import OutputUnit
+
 
 # needed for nltk.word.tokenize - do it once!
 nltk.download('punkt')
@@ -40,14 +40,11 @@ class SAMNet(TrainableNM):
     def __init__(
         self, 
         dim: int,
-        embed_hidden: int,
         max_step: int,
         num_temporal: int,
         dropout_factor: float,
         slot: int,
-        words_embed_length: int,
         num_outputs: int,
-        vocabulary_size: int
     ):
         """Constructor for ``SAMNet``
 
@@ -61,28 +58,15 @@ class SAMNet(TrainableNM):
 
 
         self.dim = dim
-        self.embed_hidden = embed_hidden
         self.max_step = max_step
         self.num_temporal = num_temporal
         self.dropout_param = dropout_factor
         self.slot = slot
-        self.words_embed_length = words_embed_length
 
         self.num_outputs = num_outputs
-        # Maximum number of embeddable words.
-        self.vocabulary_size = vocabulary_size
-
-        self.name = 'SAMNet'
-
-        # instantiate units
-        self.question_encoder = QuestionEncoder(
-            self.vocabulary_size, dim=self.dim, embedded_dim=self.embed_hidden)
 
         self.question_driven_controller = QuestionDrivenController(
             self.dim, self.max_step, self.num_temporal)
-
-        # instantiate units
-        self.image_encoder = ImageEncoder(dim=self.dim)
 
         # linear layer for the projection of image features
         self.feature_map_proj_layer = Linear(self.dim, self.dim, bias=True)
@@ -108,8 +92,9 @@ class SAMNet(TrainableNM):
         """Returns definition of the module's input ports"""
 
         return {
-            "images": NeuralType(('B', 'T', 'C', 'H', 'W'), ChannelType()),
-            "question": NeuralType(('B', 'T'), VoidType()) # Sentence token ids
+            "images_encoding": NeuralType(('B', 'T', 'C', 'H', 'W'), ChannelType()),
+            "contextual_words": NeuralType(('B', 'T', 'D'), EmbeddedTextType()),
+            "question_encoding": NeuralType(('B', 'D'), EncodedRepresentation()),
         }
 
     @property
@@ -118,11 +103,11 @@ class SAMNet(TrainableNM):
         """Returns definition of the module's output ports"""
 
         return {
-            "answers": NeuralType(('B', 'T', 'D'), LogitsType)
+            "answers": NeuralType(('B', 'T', 'D'), LogitsType())
         }
 
 
-    def forward(self, images, questions):
+    def forward(self, images_encoding, contextual_words, question_encoding):
         """Forward pass of ``SAMNet`` network.
             Calls first the ``ImageEncoder`` and ``QuestionEncoder``,
             then the recurrent SAMCells, and finally the ```OutputUnit``
@@ -134,26 +119,8 @@ class SAMNet(TrainableNM):
             Tensor: Predictions of the model.
         """
 
-        # print('============\nNew Run\n============')
-        # Change the order of image dimensions, so we will loop over
-        # dimension 0: sequence elements.
-        images = images.permute(1, 0, 2, 3, 4)
-
-        # Get batch size and length of image sequence.
-        seq_len = images.size(0)
-        batch_size = images.size(1)
-
-        # Get questions size of all batch elements.
-        questions_length = questions.size(1)
-
-        # Convert questions length into a tensor
-        questions_length = torch.from_numpy(np.array(questions_length))
-
-        # Create placeholders for logits.
-        logits_answer = torch.zeros(
-            batch_size, seq_len, self.num_outputs)
-        if self.placement is DeviceType.GPU or DeviceType.AllGpu:
-            logits_answer = logits_answer.cuda()
+        # Get batch size
+        batch_size = images_encoding.size(0)
 
         # Apply dropout to SAMCell control_state_init and summary_object states
         control_state_init = self.control_0.expand(batch_size, -1)
@@ -173,10 +140,6 @@ class SAMNet(TrainableNM):
             write_head = write_head.cuda()
         write_head[:, 0] = 1
 
-        # question encoder
-        contextual_words, question_encoding = self.question_encoder(
-            questions, questions_length)
-
         control_state = control_state_init
         control_history = []
         for step in range(self.max_step):
@@ -187,14 +150,17 @@ class SAMNet(TrainableNM):
             control_history.append(
                 (control_state, control_attention, temporal_weights))
 
+        logits_answer = []
+
+        images_encoding = images_encoding.flatten(start_dim=-2).transpose(-1, -2)
+
         # Loop over all elements along the SEQUENCE dimension.
-        for f in range(images.size(0)):
+        for feature_map in torch.unbind(images_encoding, dim=1):
 
             # RESET OF SUMMARY OBJECT
             summary_object = summary_object_init
 
             # image encoder
-            feature_map = self.image_encoder(images[f])
             feature_map_proj = self.feature_map_proj_layer(feature_map)
 
             # state history
@@ -221,7 +187,9 @@ class SAMNet(TrainableNM):
                     do_replace, do_add_new)
 
             # output unit
-            logits_answer[:, f, :] = self.output_unit_layer(
-                torch.cat([question_encoding, summary_object], dim=1))
+            logits_answer += [self.output_unit_layer(
+                torch.cat([question_encoding, summary_object], dim=1))]
+
+        logits_answer = torch.stack(logits_answer, dim=1)
 
         return logits_answer

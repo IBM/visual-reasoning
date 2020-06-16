@@ -6,7 +6,9 @@ __all__ = [
     'samnet',
     'image_encoder',
     'linear',
+    'nllloss'
 ]
 
 from .image_encoder import ImageEncoder
 from .linear import Linear
+from .nllloss import NLLLoss
