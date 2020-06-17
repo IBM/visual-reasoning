@@ -3,8 +3,12 @@
 # SPDX-License-Identifier: Apache-2.0
 
 
+import os
 import argparse
 from itertools import chain
+from statistics import mean
+from datetime import datetime
+import socket
 
 from nemo.utils.argparse import NemoArgParser
 from nemo.core import (
@@ -17,6 +21,7 @@ from nemo.core import (
     NeMoCallback,
 )
 from nemo.core.deprecated_callbacks import EvaluatorCallback
+from nemo.core import CheckpointCallback
 
 from nemo.utils import logging
 from nemo.core.neural_types import NmTensor
@@ -40,9 +45,18 @@ def main():
     )
     args = parser.parse_args()
 
-    nf = NeuralModuleFactory(local_rank=args.local_rank, placement=DeviceType.GPU)
+    current_time = datetime.now().strftime('%b%d_%H-%M-%S')
+    log_dir = os.path.join('runs', current_time + '_' + socket.gethostname())
+    os.makedirs(log_dir, exist_ok=False)
 
-    dim = 128
+    nf = NeuralModuleFactory(placement=DeviceType.GPU)
+
+    if args.create_tb_writer:
+        from torch.utils.tensorboard import SummaryWriter
+
+        tb_writer = SummaryWriter(log_dir=log_dir)
+    else:
+        tb_writer = None
 
     ### INSTANTIATE THE NEURAL MODULES ###
 
@@ -62,6 +76,8 @@ def main():
         batch_size=256,
         pin_memory=True,
     )
+
+    dim = 128
 
     question_encoder = QuestionEncoder(
         vocabulary_size=cog_datalayer_train.tokenizer.vocab_size,
@@ -164,16 +180,23 @@ def main():
 
     ### CALLBACKS ###
 
+    def train_tb_func(tb_writer, tensors, step: int):
+        loss = tensors[0].item()
+        tb_writer.add_scalar("Loss/train", loss, step)
+
     # SimpleLossLoggerCallback will print loss values to console.
     callback = SimpleLossLoggerCallback(
         tensors=[loss],
         print_func=lambda x: logging.info(f"Training Loss: {str(x[0].item())}"),
+        tb_writer=tb_writer,
+        log_to_tb_func=train_tb_func,
     )
 
     # Computing the stats for each batch, storing in global var list
     def eval_loss_per_batch_callback(tensors, global_vars):
         if "eval_stats" not in global_vars.keys():
             global_vars["eval_stats"] = []
+            global_vars["loss"] = []
 
         tasks = tensors[AppState().tensor_names["tasks_eval"]][0]
         mask_words = tensors[AppState().tensor_names["mask_words_eval"]][0]
@@ -190,15 +213,28 @@ def main():
             )
         ]
 
+        global_vars["loss"] += [loss.cpu().item()]
+
     # Collate the stats from all the validation batches, calculate accuracies, print to log
     def eval_loss_epoch_finished_callback(global_vars):
 
         stats_collated = collate_stats(global_vars["eval_stats"])
         accuracies = calculate_accuracies(stats_collated)
-
         logging.info(f"Validation accuracies: {accuracies}")
-
         global_vars["eval_stats"] = []
+
+        loss = mean(global_vars["loss"])
+        logging.info(f"Validation loss: {loss}")
+        global_vars["loss"] = []
+
+        return accuracies, loss
+
+    def eval_tb_func(tb_writer, values: (dict, float), step: int):
+        accuracies, loss = values
+        tb_writer.add_scalar("Loss/val", loss, step)
+
+        for k, v in accuracies.items():
+            tb_writer.add_scalar(f"Accuracy/val/{k}", v, step)
 
     # Validation callback, calling the 2 functions above accordingly
     ecallback = EvaluatorCallback(
@@ -213,6 +249,14 @@ def main():
         user_iter_callback=eval_loss_per_batch_callback,
         user_epochs_done_callback=eval_loss_epoch_finished_callback,
         eval_step=10000,
+        tb_writer=tb_writer,
+        tb_writer_func=eval_tb_func,
+    )
+
+    ckpt_callback = CheckpointCallback(
+        folder=log_dir,
+        step_freq=10000,
+        checkpoints_to_keep=1000
     )
 
     ### TRAIN ###
@@ -220,7 +264,7 @@ def main():
     # Invoke the "train" action.
     nf.train(
         training_graph=training_graph,
-        callbacks=[callback, ecallback],
+        callbacks=[callback, ecallback, ckpt_callback],
         optimization_params={"num_epochs": 5, "lr": 0.0002},
         optimizer="adam",
     )
